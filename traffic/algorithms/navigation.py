@@ -13,7 +13,6 @@ from typing import (
 )
 
 import onnxruntime as rt
-import torch
 from typing_extensions import Protocol
 
 import numpy as np
@@ -840,6 +839,8 @@ class NavigationFeatures:
                 )
                 embeddings = None
                 if embedding_model is not None:
+                    import torch
+
                     embedding_model.to("cpu")
                     embedding_model.eval()
                     with torch.no_grad():

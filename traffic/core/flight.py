@@ -126,21 +126,21 @@ class Position(PointMixin, pd.core.series.Series):
 
 class MetaFlight(type):
     def __getattr__(cls, name):
-        if name.startswith("aligned_on_"):
-            return lambda flight: cls.aligned_on_ils(flight, name[11:])
-        if name.startswith("takeoff_runway_"):
-            return lambda flight: cls.takeoff_from_runway(flight, name[15:])
-        if name.startswith("on_parking_"):
-            return lambda flight: cls.on_parking_position(flight, name[11:])
-        if name.startswith("pushback_"):
-            return lambda flight: cls.pushback(flight, name[9:])
-        if name.startswith("landing_at_"):
-            return lambda flight: cls.landing_at(flight, name[11:])
-        if name.startswith("takeoff_from_"):
-            return lambda flight: cls.takeoff_from(flight, name[13:])
-        if name.startswith("merge_point_"):
-            return lambda flight: cls.merge_point(flight, name[12:])
-        raise AttributeError
+        msg = f"'{cls.__name__}' has no attribute '{name}'"
+        shortcuts = dict(
+            aligned_on="aligned_on_ils",
+            takeoff_runway="takeoff_from_runway",
+            on_parking="on_parking_position",
+            pushback="pushback",
+            landing_at="landing_at",
+            takeoff_from="takeoff_from",
+            merge_point="merge_point",
+        )
+        for key, value in shortcuts.items():
+            if name.startswith(key + "_"):
+                n = len(key) + 1
+                return lambda flight: getattr(cls, value)(flight, name[n:])
+        raise AttributeError(msg)
 
 
 class Flight(
@@ -339,7 +339,10 @@ class Flight(
         *name_split, agg = name.split("_")
         feature = "_".join(name_split)
         if feature not in self.data.columns:
-            raise AttributeError(msg)
+            # delegate the search to MetaFlight
+            return lambda *args, **kwargs: getattr(self.__class__, name)(
+                self, *args, **kwargs
+            )
         return getattr(self.data[feature], agg)()
 
     def filter_if(self, test: Callable[["Flight"], bool]) -> Optional["Flight"]:

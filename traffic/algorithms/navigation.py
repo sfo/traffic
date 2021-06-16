@@ -20,6 +20,7 @@ from shapely.geometry import LineString, MultiLineString, Point, Polygon
 
 from ..core.geodesy import destination, mrr_diagonal
 from ..core.iterator import flight_iterator
+from ..core.structure import Navaid
 from ..core.time import deltalike, to_timedelta
 from .clustering import ClusteringProtocol, TransformerProtocol
 
@@ -938,6 +939,58 @@ class NavigationFeatures:
                 if next_ is not None:
                     yield next_
                 next_ = None
+
+    @flight_iterator
+    def merge_point(
+        self, waypoint: Union[str, Navaid], *args, ddiff_threshold: float = 1e-2
+    ) -> Iterator["Flight"]:
+        """Iterates on pieces of trajectory following a merge point pattern
+        around a given waypoint.
+
+        The hard part here is to find the waypoint acting as merge point.
+
+        Example usage:
+
+        >>> flight.merge_point("LAPMO")
+        ...
+        >>> t.has("aligned_on_EIDW").has("merge_point_LAPMO").eval()
+        ...
+
+        """
+        from ..data import navaids
+
+        waypoint_ = navaids[waypoint] if isinstance(waypoint, str) else waypoint
+
+        # The following cast secures the typing
+        self = cast("Flight", self)
+
+        candidate = (
+            self.resample("1s").distance(waypoint_).query("distance < 50")
+        )
+        if candidate is None:
+            return
+
+        constant_distance = candidate.diff("distance").query(
+            f"distance_diff.abs() < {ddiff_threshold}"
+        )
+        if constant_distance is None:
+            return
+
+        max_ = constant_distance.split("20s").max()
+        if max_ is None or max_.shorter_than("1T"):
+            return
+
+        after_max = self.after(max_.start)
+        assert after_max is not None
+
+        candidate = after_max.aligned_on_navpoint(waypoint_).next()
+        if candidate is not None:
+            yield after_max.before(candidate.stop)  # type: ignore
+            next_ = self.after(candidate.stop)
+            if next_ is not None:
+                yield from next_.merge_point(
+                    waypoint_, ddiff_threshold=ddiff_threshold
+                )
 
     # -- Airport ground operations specific methods --
 

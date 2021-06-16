@@ -29,6 +29,8 @@ TMA events
 .. automethod:: traffic.core.Flight.aligned_on_ils
 .. automethod:: traffic.core.Flight.go_around
 .. automethod:: traffic.core.Flight.runway_change
+.. automethod:: traffic.core.Flight.merge_point
+.. automethod:: traffic.core.Flight.holding_pattern
 
 Airborne events
 ---------------

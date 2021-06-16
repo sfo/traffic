@@ -138,6 +138,8 @@ class MetaFlight(type):
             return lambda flight: cls.landing_at(flight, name[11:])
         if name.startswith("takeoff_from_"):
             return lambda flight: cls.takeoff_from(flight, name[13:])
+        if name.startswith("merge_point_"):
+            return lambda flight: cls.merge_point(flight, name[12:])
         raise AttributeError
 
 

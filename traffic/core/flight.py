@@ -334,7 +334,8 @@ class Flight(
             => lambda f: f.max('altitude') > 10000
         """
         msg = f"'{self.__class__.__name__}' has no attribute '{name}'"
-        if "_" not in name:
+        if "_" not in name or name.startswith("__"):
+            # __getstate__/__setstate__ regularly cause issues
             raise AttributeError(msg)
         *name_split, agg = name.split("_")
         feature = "_".join(name_split)

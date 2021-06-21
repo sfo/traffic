@@ -799,15 +799,15 @@ class NavigationFeatures:
 
         # The following cast secures the typing
         self = cast("Flight", self)
-
+        pkg = "traffic.algorithms.onnx.hp_bootstrap_lszh"
         if scaler is None:
-            data = get_data("traffic.algorithms.onnx", "scaler.onnx")
+            data = get_data(pkg, "scaler.onnx")
             scaler_sess = rt.InferenceSession(data)
         if embedding_model is None:
-            data = get_data("traffic.algorithms.onnx", "embedding_model.onnx")
+            data = get_data(pkg, "embedding_model.onnx")
             embedding_sess = rt.InferenceSession(data)
         if clustering_model is None:
-            data = get_data("traffic.algorithms.onnx", "clustering_model.onnx")
+            data = get_data(pkg, "clustering_model.onnx")
             clustering_sess = rt.InferenceSession(data)
 
         start, stop = None, None
@@ -815,9 +815,7 @@ class NavigationFeatures:
         for i, window in enumerate(self.sliding_windows(duration, step)):
             if window.duration >= pd.Timedelta(threshold):
 
-                window = window.assign(
-                    flight_id=window.flight_id + "_" + str(i)
-                )
+                window = window.assign(flight_id=str(i))
 
                 resampled = window.resample(samples)
 

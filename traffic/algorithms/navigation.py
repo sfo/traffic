@@ -803,7 +803,7 @@ class NavigationFeatures:
         step: str = "2T",
         threshold: str = "5T",
         samples: int = 30,
-        candidate_clusters: List[int] = [2],
+        candidate_clusters: List[int] = [2, 5],
         bootstrap="hp_bootstrap2",
     ) -> Iterator["Flight"]:
         """Bootstrap trained on egll, eglc, eham, eidw, lszh with track+altitude"""

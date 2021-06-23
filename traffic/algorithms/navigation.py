@@ -784,7 +784,16 @@ class NavigationFeatures:
         return len(simplified.shape.buffer(1e-3).interiors)
 
     @flight_iterator
-    def holding_pattern(
+    def holding_pattern_new(
+        self, candidate_clusters=[0, 1]
+    ) -> Iterator["Flight"]:
+        """Bootstrap trained on egll, eglc, eham, eidw, lszh with track"""
+        yield from self.holding_pattern(
+            candidate_clusters=candidate_clusters, bootstrap="hp_bootstrap"
+        )
+
+    @flight_iterator
+    def holding_pattern_new2(
         self,
         # embedding_model: Optional[Callable] = None,
         embedding_model=None,
@@ -794,12 +803,13 @@ class NavigationFeatures:
         step: str = "2T",
         threshold: str = "5T",
         samples: int = 30,
-        chp: List[int] = [2],
+        candidate_clusters: List[int] = [2],
+        bootstrap="hp_bootstrap2",
     ) -> Iterator["Flight"]:
-
+        """Bootstrap trained on egll, eglc, eham, eidw, lszh with track+altitude"""
         # The following cast secures the typing
         self = cast("Flight", self)
-        pkg = "traffic.algorithms.onnx.hp_bootstrap_lszh"
+        pkg = f"traffic.algorithms.onnx.{bootstrap}"
         if scaler is None:
             data = get_data(pkg, "scaler.onnx")
             scaler_sess = rt.InferenceSession(data)
@@ -816,7 +826,96 @@ class NavigationFeatures:
             if window.duration >= pd.Timedelta(threshold):
 
                 window = window.assign(flight_id=str(i))
+                resampled = window.resample(samples)
 
+                if resampled.data.eval(
+                    "track != track or altitude != altitude"
+                ).any():
+                    continue
+
+                tracks = (
+                    resampled.data.track_unwrapped
+                    - resampled.data.track_unwrapped[0]
+                ).values.reshape(1, -1)
+                altitudes = (
+                    resampled.data.altitude - resampled.data.altitude[0]
+                ).values.reshape(1, -1)
+                data = np.concatenate((tracks, altitudes), axis=1)
+
+                name = scaler_sess.get_inputs()[0].name
+                value = data.astype(np.float32)  # type: ignore
+
+                x = (
+                    scaler_sess.run(None, {name: value})[0]
+                    if scaler is None
+                    else scaler.transform(data)  # type: ignore
+                )
+                embeddings = None
+
+                if embedding_model is not None:
+                    import torch
+
+                    embedding_model.to("cpu")
+                    embedding_model.eval()
+                    with torch.no_grad():
+                        embeddings = embedding_model(torch.Tensor(x))
+                else:
+                    name = embedding_sess.get_inputs()[0].name
+                    value = x.astype(np.float32)
+                    embeddings = embedding_sess.run(None, {name: value})[0]
+
+                name = clustering_sess.get_inputs()[0].name
+                value = embeddings.astype(np.float32)
+                cluster = (
+                    clustering_sess.run(None, {name: value})[0][0][0]
+                    if clustering_model is None
+                    else clustering_model.predict(embeddings)
+                )
+                if cluster in candidate_clusters:
+                    if start is None:
+                        start, stop = window.start, window.stop
+                    elif start < stop:
+                        stop = window.stop
+                    else:
+                        yield self.between(start, stop)
+                        start, stop = window.start, window.stop
+        if start is not None:
+            yield self.between(start, stop)  # type: ignore
+
+    @flight_iterator
+    def holding_pattern(
+        self,
+        # embedding_model: Optional[Callable] = None,
+        embedding_model=None,
+        clustering_model: Optional[ClusteringProtocol] = None,
+        scaler: Optional[TransformerProtocol] = None,
+        duration: str = "6T",
+        step: str = "2T",
+        threshold: str = "5T",
+        samples: int = 30,
+        candidate_clusters: List[int] = [2],
+        bootstrap="hp_bootstrap_lszh",
+    ) -> Iterator["Flight"]:
+
+        # The following cast secures the typing
+        self = cast("Flight", self)
+        pkg = f"traffic.algorithms.onnx.{bootstrap}"
+        if scaler is None:
+            data = get_data(pkg, "scaler.onnx")
+            scaler_sess = rt.InferenceSession(data)
+        if embedding_model is None:
+            data = get_data(pkg, "embedding_model.onnx")
+            embedding_sess = rt.InferenceSession(data)
+        if clustering_model is None:
+            data = get_data(pkg, "clustering_model.onnx")
+            clustering_sess = rt.InferenceSession(data)
+
+        start, stop = None, None
+
+        for i, window in enumerate(self.sliding_windows(duration, step)):
+            if window.duration >= pd.Timedelta(threshold):
+
+                window = window.assign(flight_id=str(i))
                 resampled = window.resample(samples)
 
                 if resampled.data.eval("track != track").any():
@@ -827,15 +926,11 @@ class NavigationFeatures:
                     - resampled.data.track_unwrapped[0]
                 ).values.reshape(1, -1)
 
+                name = scaler_sess.get_inputs()[0].name
+                value = tracks.astype(np.float32)
+
                 x = (
-                    scaler_sess.run(
-                        None,
-                        {
-                            scaler_sess.get_inputs()[0].name: tracks.astype(
-                                np.float32
-                            )
-                        },
-                    )[0]
+                    scaler_sess.run(None, {name: value})[0]
                     if scaler is None
                     else scaler.transform(tracks)
                 )
@@ -849,28 +944,18 @@ class NavigationFeatures:
                     with torch.no_grad():
                         embeddings = embedding_model(torch.Tensor(x))
                 else:
-                    embeddings = embedding_sess.run(
-                        None,
-                        {
-                            embedding_sess.get_inputs()[0].name: x.astype(
-                                np.float32
-                            )
-                        },
-                    )[0]
+                    name = embedding_sess.get_inputs()[0].name
+                    value = x.astype(np.float32)
+                    embeddings = embedding_sess.run(None, {name: value})[0]
 
-                c = (
-                    clustering_sess.run(
-                        None,
-                        {
-                            clustering_sess.get_inputs()[
-                                0
-                            ].name: embeddings.astype(np.float32)
-                        },
-                    )[0][0][0]
+                name = clustering_sess.get_inputs()[0].name
+                value = embeddings.astype(np.float32)
+                cluster = (
+                    clustering_sess.run(None, {name: value})[0][0][0]
                     if clustering_model is None
                     else clustering_model.predict(embeddings)
                 )
-                if c in chp:
+                if cluster in candidate_clusters:
                     if start is None:
                         start, stop = window.start, window.stop
                     elif start < stop:
@@ -899,6 +984,9 @@ class NavigationFeatures:
             future.
 
         """
+        # The following cast secures the typing
+        self = cast("Flight", self)
+
         # avoid parts that are really way too low
         alt_above = self.query(f"altitude > {min_altitude}")
         if alt_above is None:

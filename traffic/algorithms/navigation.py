@@ -806,7 +806,9 @@ class NavigationFeatures:
         candidate_clusters: List[int] = [2, 5],
         bootstrap="hp_bootstrap2",
     ) -> Iterator["Flight"]:
-        """Bootstrap trained on egll, eglc, eham, eidw, lszh with track+altitude"""
+        """Bootstrap with track+altitude.
+        trained on egll, eglc, eham, eidw, lszh
+        """
         # The following cast secures the typing
         self = cast("Flight", self)
         pkg = f"traffic.algorithms.onnx.{bootstrap}"

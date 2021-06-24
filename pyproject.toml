@@ -31,7 +31,8 @@ include = [
   "traffic.conf",
   "py.typed",
   "*.json.*",
-  ".xml",
+  "*.xml",
+  "*.onnx",
   "allft_fields.txt"
 ]
 

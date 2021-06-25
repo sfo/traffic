@@ -784,7 +784,7 @@ class NavigationFeatures:
         return len(simplified.shape.buffer(1e-3).interiors)
 
     @flight_iterator
-    def holding_pattern_new(
+    def holding_pattern_track(
         self, candidate_clusters=[0, 1]
     ) -> Iterator["Flight"]:
         """Bootstrap trained on egll, eglc, eham, eidw, lszh with track"""
@@ -793,7 +793,7 @@ class NavigationFeatures:
         )
 
     @flight_iterator
-    def holding_pattern_new2(
+    def holding_pattern_track_altitude(
         self,
         # embedding_model: Optional[Callable] = None,
         embedding_model=None,
@@ -803,7 +803,7 @@ class NavigationFeatures:
         step: str = "2T",
         threshold: str = "5T",
         samples: int = 30,
-        candidate_clusters: List[int] = [2, 5],
+        candidate_clusters: List[int] = [2, 3],
         bootstrap="hp_bootstrap2",
     ) -> Iterator["Flight"]:
         """Bootstrap with track+altitude.

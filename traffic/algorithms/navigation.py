@@ -784,6 +784,77 @@ class NavigationFeatures:
         return len(simplified.shape.buffer(1e-3).interiors)
 
     @flight_iterator
+    def holding_pattern_classifier(
+        self,
+        classifier_model=None,
+        scaler: Optional[TransformerProtocol] = None,
+        duration: str = "6T",
+        step: str = "2T",
+        threshold: str = "5T",
+        samples: int = 30,
+    ) -> Iterator["Flight"]:
+        """Classifier
+        trained on egll (partially?), eidw
+        """
+        # The following cast secures the typing
+        self = cast("Flight", self)
+        pkg = "traffic.algorithms.onnx"
+        if scaler is None:
+            data = get_data(pkg, "hp_scaler.onnx")
+            scaler_sess = rt.InferenceSession(data)
+        if classifier_model is None:
+            data = get_data(pkg, "hp_classifier.onnx")
+            classifier_sess = rt.InferenceSession(data)
+
+        start, stop = None, None
+
+        for i, window in enumerate(self.sliding_windows(duration, step)):
+            if window.duration >= pd.Timedelta(threshold):
+
+                window = window.assign(flight_id=str(i))
+                resampled = window.resample(samples)
+
+                if resampled.data.eval("track != track").any():
+                    continue
+
+                tracks = (
+                    resampled.data.track_unwrapped
+                    - resampled.data.track_unwrapped[0]
+                ).values.reshape(1, -1)
+
+                name = scaler_sess.get_inputs()[0].name
+                value = tracks.astype(np.float32)
+
+                x = (
+                    scaler_sess.run(None, {name: value})[0]
+                    if scaler is None
+                    else scaler.transform(tracks)
+                )
+
+                if classifier_model is not None:
+                    import torch
+
+                    classifier_model.to("cpu")
+                    classifier_model.eval()
+                    with torch.no_grad():
+                        pred = classifier_model(torch.Tensor(x))
+                else:
+                    name = classifier_sess.get_inputs()[0].name
+                    value = x.astype(np.float32)
+                    pred = classifier_sess.run(None, {name: value})[0]
+
+                if bool(pred.round().item()):
+                    if start is None:
+                        start, stop = window.start, window.stop
+                    elif start < stop:
+                        stop = window.stop
+                    else:
+                        yield self.between(start, stop)
+                        start, stop = window.start, window.stop
+        if start is not None:
+            yield self.between(start, stop)  # type: ignore
+
+    @flight_iterator
     def holding_pattern_track(
         self, candidate_clusters=[0, 1]
     ) -> Iterator["Flight"]:

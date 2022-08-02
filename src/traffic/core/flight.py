@@ -3790,6 +3790,7 @@ class Flight(HBoxMixin, GeographyMixin, ShapelyMixin, metaclass=MetaFlight):
         y: Union[str, List[str]],
         ax: Union[None, "Axes"] = None,
         secondary_y: Union[None, str, List[str]] = None,
+        relative: Union[None, Literal["start"], Literal["stop"]] = None,
         **kwargs: Any,
     ) -> None:  # coverage: ignore
         """Plots the given features according to time.
@@ -3798,6 +3799,11 @@ class Flight(HBoxMixin, GeographyMixin, ShapelyMixin, metaclass=MetaFlight):
 
         - only non-NaN data are displayed (no gap in the plot);
         - the timestamp is naively converted to UTC if not localized.
+
+        - ``relative`` can be set to "start" or "stop" to plot over seconds
+          since start or seconds remaining, respectively. This comes in handy
+          when plotting multiple flights in one single chart via
+          `plot_time() <#traffic.core.Traffic.plot_chart>`_.
 
         Example usage:
 
@@ -3840,7 +3846,22 @@ class Flight(HBoxMixin, GeographyMixin, ShapelyMixin, metaclass=MetaFlight):
             }
             subtab = self.data.query(f"{column}.notnull()")
 
-            if localized:
+            if relative:
+                if relative == "start":
+                    subtab.assign(
+                        seconds_since_start=(
+                            subtab["timestamp"] - self.start
+                        ).dt.total_seconds()
+                    ).plot(ax=ax, x="seconds_since_start", **kw)
+                elif relative == "stop":
+                    subtab.assign(
+                        seconds_until_stop=(
+                            self.stop - subtab["timestamp"]
+                        ).dt.total_seconds()
+                    ).plot(ax=ax, x="seconds_until_stop", **kw)
+                else:
+                    _log.error(f"unknown value for 'relative': {relative}")
+            elif localized:
                 (
                     subtab.assign(
                         timestamp=lambda df: df.timestamp.dt.tz_convert("utc")

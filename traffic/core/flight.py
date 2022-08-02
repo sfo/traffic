@@ -2835,6 +2835,7 @@ class Flight(
         ax: "Axes",
         y: Union[str, List[str]],
         secondary_y: Union[None, str, List[str]] = None,
+        relative: Union[None, str] = None,
         **kwargs: Any,
     ) -> None:  # coverage: ignore
         """Plots the given features according to time.
@@ -2843,6 +2844,11 @@ class Flight(
 
         - only non-NaN data are displayed (no gap in the plot);
         - the timestamp is naively converted to UTC if not localized.
+
+        - ``relative`` can be set to "start" or "stop" to plot over seconds
+          since start or seconds remaining, respectively. This comes in handy
+          when plotting multiple flights in one single chart via
+          `plot_time() <#traffic.core.Traffic.plot_chart>`_.
 
         Example usage:
 
@@ -2881,7 +2887,18 @@ class Flight(
             }
             subtab = self.data.query(f"{column} == {column}")
 
-            if localized:
+            if relative:
+                if relative == "start":
+                    subtab.assign(
+                        seconds_since_start=(subtab['timestamp'] - self.start).dt.total_seconds()
+                    ).plot(ax=ax, x="seconds_since_start", **kw)
+                elif relative == "stop":
+                    subtab.assign(
+                        seconds_until_stop=(self.stop - subtab['timestamp']).dt.total_seconds()
+                    ).plot(ax=ax, x="seconds_until_stop", **kw)
+                else:
+                    _log.warning(f"unknown value for 'relative': {relative}")
+            elif localized:
                 (
                     subtab.assign(
                         timestamp=lambda df: df.timestamp.dt.tz_convert("utc")

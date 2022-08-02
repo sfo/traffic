@@ -45,6 +45,7 @@ if TYPE_CHECKING:
     from cartopy import crs
     from cartopy.mpl.geoaxes import GeoAxesSubplot
     from matplotlib.artist import Artist
+    from matplotlib.axes._subplots import Axes
 
     from ..algorithms.clustering import (  # noqa: F401
         ClusteringProtocol,
@@ -1109,6 +1110,29 @@ class Traffic(HBoxMixin, GeographyMixin):
             windfield.wind_v.values,
             **kwargs,
         )
+
+    def plot_time(
+        self,
+        ax: "Axes",
+        y: Union[str, List[str]],
+        secondary_y: Union[None, str, List[str]] = None,
+        relative: Union[None, str] = None,
+        nb_flights: Union[None, int] = None,
+        **kwargs: Any,
+    ) -> None:  # coverage: ignore
+        """Plots the given features according to time for each flight.
+
+        See `Flight.plot_time() <#traffic.core.Flight.plot_time>`_ for details.
+        """
+        for flight in self.iterate(nb_flights=nb_flights):
+            flight.plot_time(
+                ax=ax,
+                y=y,
+                secondary_y=secondary_y,
+                relative=relative,
+                **kwargs
+            )
+
 
     # --- Real work ---
 

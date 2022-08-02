@@ -48,6 +48,7 @@ if TYPE_CHECKING:
     from cartopy.mpl.geoaxes import GeoAxesSubplot
     from ipyleaflet import Map as LeafletMap
     from matplotlib.artist import Artist
+    from matplotlib.axes import Axes
 
     from ..algorithms.clustering import ClusteringProtocol, TransformerProtocol
     from ..algorithms.cpa import CPA
@@ -1371,6 +1372,28 @@ class Traffic(HBoxMixin, GeographyMixin):
             windfield.wind_v.to_numpy(),
             **kwargs,
         )
+
+    def plot_time(
+        self,
+        y: Union[str, List[str]],
+        ax: Union[None, "Axes"] = None,
+        secondary_y: Union[None, str, List[str]] = None,
+        relative: Union[None, Literal["start"], Literal["stop"]] = None,
+        nb_flights: Union[None, int] = None,
+        **kwargs: Any,
+    ) -> None:  # coverage: ignore
+        """Plots the given features according to time for each flight.
+
+        See `Flight.plot_time() <#traffic.core.Flight.plot_time>`_ for details.
+        """
+        for flight in self.iterate(nb_flights=nb_flights):
+            flight.plot_time(
+                ax=ax,
+                y=y,
+                secondary_y=secondary_y,
+                relative=relative,
+                **kwargs,
+            )
 
     # --- Real work ---
 

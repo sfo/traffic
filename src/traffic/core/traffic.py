@@ -1381,11 +1381,16 @@ class Traffic(HBoxMixin, GeographyMixin):
         relative: Union[None, Literal["start"], Literal["stop"]] = None,
         nb_flights: Union[None, int] = None,
         **kwargs: Any,
-    ) -> None:  # coverage: ignore
+    ) -> "Axes":  # coverage: ignore
         """Plots the given features according to time for each flight.
 
         See `Flight.plot_time() <#traffic.core.Flight.plot_time>`_ for details.
         """
+        if ax is None:
+            import matplotlib.pyplot as plt
+
+            ax = plt.gca()
+
         for flight in self.iterate(nb_flights=nb_flights):
             flight.plot_time(
                 ax=ax,
@@ -1394,6 +1399,8 @@ class Traffic(HBoxMixin, GeographyMixin):
                 relative=relative,
                 **kwargs,
             )
+
+        return ax
 
     # --- Real work ---
 

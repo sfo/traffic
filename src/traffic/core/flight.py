@@ -3800,7 +3800,7 @@ class Flight(HBoxMixin, GeographyMixin, ShapelyMixin, metaclass=MetaFlight):
         secondary_y: Union[None, str, List[str]] = None,
         relative: Union[None, Literal["start"], Literal["stop"]] = None,
         **kwargs: Any,
-    ) -> None:  # coverage: ignore
+    ) -> "Axes":  # coverage: ignore
         """Plots the given features according to time.
 
         The method ensures:
@@ -3883,6 +3883,7 @@ class Flight(HBoxMixin, GeographyMixin, ShapelyMixin, metaclass=MetaFlight):
                         ).dt.tz_convert("utc")
                     ).plot(ax=ax, x="timestamp", **kw)
                 )
+        return ax
 
     @classmethod
     def from_fr24(cls, filename: Union[Path, str]) -> Flight:

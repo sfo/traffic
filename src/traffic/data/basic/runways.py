@@ -23,7 +23,13 @@ from shapely.ops import linemerge
 
 from ... import cache_expiration
 from ...core import tqdm
-from ...core.mixins import DataFrameMixin, HBoxMixin, PointMixin, ShapelyMixin
+from ...core.mixins import (
+    DataFrameMixin,
+    GeographyMixin,
+    HBoxMixin,
+    PointMixin,
+    ShapelyMixin,
+)
 from .. import client
 
 if TYPE_CHECKING:
@@ -159,7 +165,7 @@ class Runway(HBoxMixin, ShapelyMixin, DataFrameMixin):
         raise ValueError("mode must be 'geometry' or 'labels'")
 
 
-class RunwaysAirport(HBoxMixin, ShapelyMixin, DataFrameMixin):
+class RunwaysAirport(HBoxMixin, ShapelyMixin, GeographyMixin):
     def __init__(
         self,
         data: Optional[pd.DataFrame] = None,

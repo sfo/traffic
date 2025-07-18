@@ -128,7 +128,7 @@ class Airport(FormatMixin, HBoxMixin, PointMixin, ShapelyMixin):
         state.pop("_openstreetmap", None)
         return state
 
-    def __setstate__(self, state):
+    def __setstate__(self, state: dict[str, Any]) -> None:
         self.__dict__.update(state)
 
     def leaflet(self, **kwargs: Any) -> "LeafletGeoData":

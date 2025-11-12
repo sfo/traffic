@@ -3,7 +3,7 @@ import pickle
 import pytest
 
 import pandas as pd
-from traffic.core import Flight
+from traffic.core import Flight, Traffic
 from traffic.data import eurofirs
 from traffic.data.samples import switzerland
 
@@ -90,7 +90,7 @@ def high_altitude(flight: Flight) -> bool:
 @pytest.mark.slow
 def test_chaining() -> None:
     sw_filtered = (
-        switzerland.between("2018-08-01", "2018-08-02")  # type: ignore
+        switzerland.between("2018-08-01", "2018-08-02")
         .inside_bbox(eurofirs["LSAS"])
         .assign_id()
         .pipe(high_altitude)
@@ -117,7 +117,7 @@ def test_chaining() -> None:
 @pytest.mark.slow
 def test_chaining_with_lambda() -> None:
     sw_filtered = (
-        switzerland.between("2018-08-01", "2018-08-02")  # type: ignore
+        switzerland.between("2018-08-01", "2018-08-02")
         .inside_bbox(eurofirs["LSAS"])
         .assign_id()
         .pipe(lambda flight: flight.altitude_min > 35000)
@@ -215,3 +215,49 @@ def test_pickling() -> None:
     p = pickle.dumps(original)
     restored = pickle.loads(p)
     assert restored is not None
+
+
+def test_sample_none() -> None:
+    sw_id = switzerland.assign_id().eval()
+    assert sw_id is not None
+
+    flights = sw_id.sample()
+    assert flights is not None
+    assert isinstance(flights, Flight)
+
+
+def test_sample_single() -> None:
+    sw_id = switzerland.assign_id().eval()
+    assert sw_id is not None
+
+    size = 1
+    flights = sw_id.sample(size=size)
+    assert flights is not None
+    assert isinstance(flights, Traffic)
+    assert len(flights) == size
+
+
+def test_sample_multiple() -> None:
+    sw_id = switzerland.assign_id().eval()
+    assert sw_id is not None
+
+    size = 5
+    flights = sw_id.sample(size=size)
+    assert flights is not None
+    assert isinstance(flights, Traffic)
+    assert len(flights) == size
+
+
+def test_sample_seed() -> None:
+    sw_id = switzerland.assign_id().eval()
+    assert sw_id is not None
+
+    flights_1 = sw_id.sample(size=5, seed=42)
+    assert flights_1 is not None
+    assert isinstance(flights_1, Traffic)
+
+    flights_2 = sw_id.sample(size=5, seed=42)
+    assert flights_2 is not None
+    assert isinstance(flights_2, Traffic)
+
+    assert flights_1.data.equals(flights_2.data)
